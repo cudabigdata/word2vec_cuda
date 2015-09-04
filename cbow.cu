@@ -32,13 +32,22 @@ void __global__ device_memset(real * array, int size){
 		array[idx] = 0;
 }
 
-__device__ void reduceInWarp( float * f, int idInWarp){
-	for(int i = THREADS_PER_WORD /2; i > 0; i /= 2){
-		if (idInWarp < i){
-            f[idInWarp] += f[idInWarp + i];
 
-        }
-		 __syncthreads();
+__device__ void reduceInWarp(volatile float * f, int idInWarp){
+
+	for (unsigned int i=THREADS_PER_WORD /2; i>32; i>>=1) {
+		if (idInWarp < i) {
+			f[idInWarp] += f[idInWarp + i];
+		}
+		__syncthreads();
+	}
+	if (idInWarp < 32){
+		f[idInWarp] += f[idInWarp + 32];
+		f[idInWarp] += f[idInWarp + 16];
+		f[idInWarp] += f[idInWarp + 8];
+		f[idInWarp] += f[idInWarp + 4];
+		f[idInWarp] += f[idInWarp + 2];
+		f[idInWarp] += f[idInWarp + 1];
 	}
 }
 
@@ -66,7 +75,7 @@ void __global__ device_cbow(int sentence_num, int layer1_size, int layer1_size_a
 			for (int c = idInWarp; c < layer1_size; c+=THREADS_PER_WORD) neu1e[c] = 0;
 
 
-			__syncthreads();
+
 			next_random = next_random * (unsigned int) 1664525 + 1013904223;
 			int b = next_random % window;
 			int word = d_sen[sentence_idx * MAX_SENTENCE_LENGTH + sentence_position];
@@ -85,14 +94,14 @@ void __global__ device_cbow(int sentence_num, int layer1_size, int layer1_size_a
 
 					cw++;
 				}
-			__syncthreads();
+			
 			if (cw) {
 				for (int c = idInWarp; c < layer1_size; c+= THREADS_PER_WORD)
 					neu1[c] /= cw;
-				__syncthreads();
+			
 			// NEGATIVE SAMPLING
 			int target, label;
-			float alpha = (float) d_sen[MAX_SENTENCE_NUM * MAX_SENTENCE_LENGTH + sentence_idx];
+			float alpha =*((float *) &d_sen[MAX_SENTENCE_NUM * MAX_SENTENCE_LENGTH + sentence_idx]);
 
 			if (negative > 0)
 
@@ -114,17 +123,17 @@ void __global__ device_cbow(int sentence_num, int layer1_size, int layer1_size_a
 					}
 					int l2 = target * layer1_size_aligned;
 					f[idInWarp] = 0;
-					__syncthreads();
-					//printf("%d %d: d=%d %f \n",blockIdx.x, threadIdx.x, d, f[idInWarp]);
+				
+					
 					for (int c = idInWarp; c < layer1_size; c+=THREADS_PER_WORD){
-						f[idInWarp] += neu1[c] * d_syn1neg[c + l2];
-					    //printf("%d %d: d=%d %d %f %f %f\n",blockIdx.x, threadIdx.x, d, idInWarp,neu1[c], d_syn1neg[c+l2], neu1[c] * d_syn1neg[c + l2]);
-				//	__syncthreads();
+						f[idInWarp] += neu1[c] * d_syn1neg[c + l2];   
 					}
 					__syncthreads();
 					// Do reduction here;
 					reduceInWarp(f, idInWarp);
-					//printf("%f\n",f[0]);
+
+					__syncthreads();
+					
 					float g;
 					if (f[0] > MAX_EXP)
 						g = (label - 1) * alpha;
@@ -134,11 +143,12 @@ void __global__ device_cbow(int sentence_num, int layer1_size, int layer1_size_a
 						g = (label - expTable[(int) ((f[0] + MAX_EXP)
 									* (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
 
+					//__syncthreads();	
 					for (int c = idInWarp; c < layer1_size; c+=THREADS_PER_WORD)
 						neu1e[c] += g * d_syn1neg[c + l2];
 					for (int c = idInWarp; c < layer1_size; c+=THREADS_PER_WORD)
 						d_syn1neg[c + l2] += g * neu1[c];
-					__syncthreads();
+					
 				}
 			// hidden -> in
 			for (int a = b; a < window * 2 + 1 - b; a++)

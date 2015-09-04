@@ -11,12 +11,12 @@
 #define MAX_STRING 100
 #define EXP_TABLE_SIZE 1000
 #define MAX_EXP 6
-#define MAX_SENTENCE_LENGTH 1000
+#define MAX_SENTENCE_LENGTH 1024
 #define MAX_CODE_LENGTH 40
-#define MAX_SENTENCE_NUM 1
+#define MAX_SENTENCE_NUM 6
 #define ALIGNMENT_FACTOR 32
-#define THREADS_PER_WORD 256
-#define BLOCK_SIZE 256
+#define THREADS_PER_WORD 128
+#define BLOCK_SIZE 128
 typedef float real;
 
 void TrainGPU(int sentence_num);
