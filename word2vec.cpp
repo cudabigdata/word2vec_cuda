@@ -37,7 +37,8 @@ struct vocab_word *vocab;
 int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
 int *vocab_hash;
 int vocab_max_size = 1000, vocab_size = 0, layer1_size = 100,  layer1_size_aligned;;
-int train_words = 0, word_count_actual = 0, iter = 5, file_size = 0, classes = 0;
+long long train_words = 0, word_count_actual = 0, file_size = 0;
+int iter = 5,  classes = 0;
 real alpha = 0.025, starting_alpha, sample = 1e-3;
 real *syn0;
 int * sen;
@@ -274,7 +275,7 @@ void LearnVocabFromTrainFile() {
     if (feof(fin)) break;
     train_words++;
     if ((debug_mode > 1) && (train_words % 100000 == 0)) {
-      printf("%dK%c", train_words / 1000, 13);
+      printf("%lldK%c", train_words / 1000, 13);
       fflush(stdout);
     }
     i = SearchVocab(word);
@@ -287,7 +288,7 @@ void LearnVocabFromTrainFile() {
   SortVocab();
   if (debug_mode > 0) {
     printf("Vocab size: %d\n", vocab_size);
-    printf("Words in train file: %d\n", train_words);
+    printf("Words in train file: %lld\n", train_words);
   }
   file_size = ftell(fin);
   fclose(fin);
@@ -321,7 +322,7 @@ void ReadVocab() {
   SortVocab();
   if (debug_mode > 0) {
     printf("Vocab size: %d\n", vocab_size);
-    printf("Words in train file: %d\n", train_words);
+    printf("Words in train file: %lld\n", train_words);
   }
   fin = fopen(train_file, "rb");
   if (fin == NULL) {
@@ -348,7 +349,7 @@ void InitNet() {
 
 void *TrainModelThread(void *id) {
   int   word, sentence_length = 0;
-  int word_count = 0, last_word_count = 0;
+  long long word_count = 0, last_word_count = 0;
   int    local_iter = iter;
   unsigned int next_random = (long)id;
   int sentence_num;
